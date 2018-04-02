@@ -2,43 +2,58 @@ from datetime import datetime
 import csv
 import subprocess
 import os
-import sys
-sys.path.append(os.path.expanduser('~/Dropbox/Active/Other_stuff/IndependentProjects/journal_feed'))
+os.chdir(os.path.expanduser('~/Dropbox/Active/Other_stuff/IndependentProjects/journal_feed'))
 from customweb import scrape
-from neuronparser import NeuronParser
+from cellparser import CellParser
 from natureneuroparser import NatureNeuroParser
-from currentbioparser import CurrentBioParser
 from pnasparser import PNASParser
 from natureparser import NatureParser
 from jneurosciparser import JNeurosciParser
-from nodateerror import NoDateError
+import pandas as pd
+from datetime import timedelta
 
-os.chdir(os.path.expanduser('~/Dropbox/Active/Other_stuff/IndependentProjects/journal_feed'))
+
 recipients = [r[0] for r in csv.reader(open('recipients.csv', 'r'))]
 
 site_urls = [
     'https://www.nature.com/nature/current_issue.html',
+    'http://www.nature.com/nature/research',
     'https://www.nature.com/neuro/current-issue',
+    'https://www.nature.com/neuro/research',
     'http://www.cell.com/neuron/current',
+    'http://www.cell.com/neuron/newarticles',
     'http://www.cell.com/current-biology/current',
+    'http://www.cell.com/current-biology/newarticles',
     'http://www.pnas.org/content/current',
-    'http://www.jneurosci.org/content/current'
+    'http://www.jneurosci.org/content/current',
+    'http://www.jneurosci.org/content/early/recent'
 ]
+
 parsers = [
     NatureParser(),
     NatureNeuroParser(),
-    NeuronParser(),
-    CurrentBioParser(),
+    NatureNeuroParser(),
+    NatureNeuroParser(),
+    CellParser(),
+    CellParser(),
+    CellParser(),
+    CellParser(),
     PNASParser(),
+    JNeurosciParser(),
     JNeurosciParser()
 ]
 
 journal_names = [
     'Nature',
+    'Nature',
+    'Nature Neuroscience',
     'Nature Neuroscience',
     'Neuron',
+    'Neuron',
+    'Current Biology',
     'Current Biology',
     'PNAS',
+    'Journal of Neuroscience',
     'Journal of Neuroscience'
 ]
 
@@ -52,77 +67,102 @@ for (url, parser) in zip(site_urls, parsers):
         error_report += url + " could not be reached\n"
     try:
         parser.feed(source)
-    except NoDateError:
-        error_report += "Could not find date on " + url + "\n"
     except:
         error_report += url + " could not be parsed\n"
         parser.issue_date = None
     finally:
         error_report += parser.warnings
 
-#check issue dates against known issues
-known_dates = [
-    datetime(int(r[1]), int(r[2]), int(r[3])).date() 
-    for r in csv.reader(open('latest_issues.csv', 'r'))
-    ]
-scraped_dates = [p.issue_date for p in parsers]
-new_issues = [s is not None and not k == s for k,s, in zip(known_dates, scraped_dates)]
+###process the results of scraping the journals
 
-#update issue dates
-with open('latest_issues.csv', 'w') as csvfile:
-    writer = csv.writer(csvfile, delimiter=',')
-    for p, n, k in zip(parsers, journal_names, known_dates):
-        if p.issue_date is not None:
-            writer.writerow([
-                n,
-                p.issue_date.year,
-                p.issue_date.month,
-                p.issue_date.day]
-                )
-        else:
-            #couldn't find a date for this journal, so write date of last successful read
-            writer.writerow([
-                n,
-                k.year,
-                k.month,
-                k.day]
-                )
+#get list of articles
+journal = []
+article_type = []
+title = []
+authors = []
+description = []
+link = []
+date = []
 
-#generate the digest
-for p, n, is_new in zip(parsers, journal_names, new_issues):
-    if not is_new:
-        continue
-    contents = (
-        n + ' '
-        + datetime.strftime(p.issue_date, "%d %B %Y")
-        + "\n\n"
-    )
-    for t, l, d, a in zip(p.titles, p.links, p.descriptions, p.authors):
-        contents += t.strip().replace("\t", "") + ("\n" if len(t) > 0 else "")
-        contents += (
-            (', '.join(a) if type(a) == list else a) 
-            + ("\n" if len(a) > 0 else ""))
-        contents += d.strip().replace("\t", "") + ("\n" if len(d) > 0 else "")
-        contents += l + ("\n" if len(l) > 0 else "")
-        contents += "\n"
+for (p, j) in zip(parsers, journal_names):
+    n = len(p.titles)
+    title += p.titles
+    authors += [(', '.join(a) if type(a) == list else a) for a in p.authors]
+    description += p.descriptions
+    link += p.links
+    article_type += p.article_types
+    journal += [j for i in range(n)]
+    date += [datetime.strftime(datetime.now().date(), "%d %B %Y") for i in range(n)]
+articles = pd.DataFrame(
+    {"journal": journal,
+    "article_type": article_type,
+    "title": title,
+    "authors": authors,
+    "description": description,
+    "link": link,
+    "date": date
+    })
 
+#get cached list
+cache = pd.read_csv('cached_articles.csv').fillna('')
+
+#drop articles with the same title and authors as cached articles
+known_papers = [(
+    t, 
+    a.split(",")[0].split('and')[0].strip(), #first author
+    l
+    ) for t, a, l in zip(cache['title'], cache['authors'], cache['link'])]
+
+drop_at = pd.Series([
+    (t,a.split(",")[0].split('and')[0].strip()) in [(k[0], k[1]) for k in known_papers]
+    or (t, l) in [(k[0], k[2]) for k in known_papers]
+    for (t, a, l) in zip(articles['title'], articles['authors'], articles['link'])]).values
+new_articles = articles[~drop_at]
+
+#cache new articles
+new_cache = pd.concat([new_articles, cache])
+#drop old articles from cache
+drop_at = pd.Series(
+    [datetime.strptime(adate, "%d %B %Y").date() < datetime.now().date()-timedelta(days=40) for adate in new_cache['date']]
+    ).values
+new_cache = new_cache[~drop_at]
+
+#write the new cache to csv
+new_cache.to_csv('cached_articles.csv', index = False)
+
+#generate the digest from new articles
+contents = ""
+previous_journal = None
+for index, line in new_articles.iterrows():
+    if not line['journal'] == previous_journal:
+        contents += "\n\n" + line['journal'] + "\n\n"
+
+    if line['article_type'] is not None:
+        contents += '[' + line['article_type'].strip() + ']' + "\n"
+    contents += line['title'] + "\n"
+    if line['authors'] is not None and len(line['authors'].strip()) > 1:
+        contents += line['authors'] + "\n"
+    if line['description'] is not None and len(line['description'].strip()) > 1:
+        contents += line['description'] + "\n"
+    contents += line['link'] + "\n\n"
+    previous_journal = line['journal']
+
+#send the emails
+for email_address in recipients:
+    #don't send if no new articles today
+    if contents == "":
+        break
     #send the email
-    for email_address in recipients:
-        mail_input = subprocess.Popen(('echo', contents), stdout=subprocess.PIPE)
-        if p.issue_date.day == 1 and datetime.now().day > 2 and p.issue_date.month == datetime.now().month:
-            #we are using the 1st as a placeholder date, so send today's date instead
-            display_date = datetime.strftime(datetime.now().date(), "%d %B %Y")
-        else:
-            display_date = datetime.strftime(p.issue_date, "%d %B %Y")
-        subprocess.check_output([
-            'mail',
-            '-s',
-            n + ' ' + display_date,
-            email_address],
-            stdin = mail_input.stdout)
+    mail_input = subprocess.Popen(('echo', contents), stdout=subprocess.PIPE)
+    display_date = datetime.strftime(datetime.now().date(), "%d %B %Y")
+    subprocess.check_output([
+        'mail',
+        '-s',
+        'New articles for' + ' ' + display_date,
+        email_address],
+        stdin = mail_input.stdout)
 
 #send the success report or warnings to Lucas
-
 mail_input = subprocess.Popen(('echo', error_report), stdout=subprocess.PIPE)
 subprocess.check_output([
     'mail',

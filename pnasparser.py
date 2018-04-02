@@ -1,5 +1,4 @@
 from html.parser import HTMLParser
-from nodateerror import NoDateError
 from datetime import datetime
 
 class PNASParser(HTMLParser):
@@ -7,12 +6,14 @@ class PNASParser(HTMLParser):
             super(PNASParser, self).__init__()
             self.data_type = None #used temporarily to hold type of data being read
             self.data_subtype = None
+            self.section_type = None
             self.n = -1 #index of article being read
             self.issue_date = None
             self.titles = []
             self.authors = []
             self.descriptions = []
             self.links = []
+            self.article_types = []
             self.warnings = ""
 
         def feed(self, data):
@@ -20,16 +21,18 @@ class PNASParser(HTMLParser):
             self.quality_check()
 
         def quality_check(self):
-            if not type(self.issue_date) is type(datetime(1,1,1).date()):
-                raise NoDateError('No date for PNAS')
-            if len(self.titles) < 25:
+            #if not type(self.issue_date) is type(datetime(1,1,1).date()):
+            #    raise NoDateError('No date for PNAS')
+            if len(self.titles) < 8:
                 self.warnings += "Warning: found too few articles in PNAS" + '\n'
-            if sum([x == [] for x in self.authors]) > 6:
+            if sum([x == [] for x in self.authors]) > len(self.titles)/2:
                 self.warnings += "Warning: found many articles with no authors in PNAS" + '\n'
             #if sum([x == '' for x in self.descriptions]) > 6:
             #    self.warnings += "Warning: found many articles with no description in PNAS"  + '\n'
             if sum([x == '' for x in self.links]) > 0:
                 self.warnings += "Warning: could not find links to all articles in PNAS"  + '\n'
+            if len(set(self.article_types)) < 2:
+                self.article_types = ["Article" for x in self.article_types]
 
         def handle_starttag(self, tag, attrs):
             if (tag == "span" 
@@ -40,12 +43,13 @@ class PNASParser(HTMLParser):
 
             if (tag == "div" 
                 and len(attrs)>0
-                and attrs[0] == ("class", "toc-citation")):
+                and attrs[0] == ("class", "highwire-cite-access")):
                 self.n += 1
                 self.titles.append('')
                 self.authors.append([])
                 self.descriptions.append('')
                 self.links.append('')
+                self.article_types.append(self.section_type)
                 self.data_type = "article"
             
             if (self.data_type == "article"
@@ -69,6 +73,9 @@ class PNASParser(HTMLParser):
                 ):
                 self.data_subtype = "author"
 
+            if (tag == "h2"):
+                self.data_type = "section"
+
         def handle_endtag(self, tag):
             if (self.data_subtype == "title" 
                 and tag == "a"):
@@ -90,3 +97,7 @@ class PNASParser(HTMLParser):
 
             if self.data_subtype == "author":
                 self.authors[self.n].append(data)   
+
+            if self.data_type == "section":
+                self.section_type = data
+                self.data_type = None

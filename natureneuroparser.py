@@ -1,5 +1,7 @@
+#This can parse Nature Neuroscience issues,
+#and both Nature and Nature Neuroscience latest pre-print publications
+
 from html.parser import HTMLParser
-from nodateerror import NoDateError
 from datetime import datetime
 
 class NatureNeuroParser(HTMLParser):
@@ -13,6 +15,7 @@ class NatureNeuroParser(HTMLParser):
             self.authors = []
             self.descriptions = []
             self.links = []
+            self.article_types = []
             self.warnings = ""
 
         def feed(self, data):
@@ -20,16 +23,18 @@ class NatureNeuroParser(HTMLParser):
             self.quality_check()
 
         def quality_check(self):
-            if not type(self.issue_date) is type(datetime(1,1,1).date()):
-                raise NoDateError('No date for Nature Neuroscience')
+            #if not type(self.issue_date) is type(datetime(1,1,1).date()):
+            #    raise NoDateError('No date for Nature Neuroscience')
             if len(self.titles) < 12:
                 self.warnings += "Warning: found too few articles in Nature Neuroscience"
-            if sum([x == [] for x in self.authors]) > 6:
+            if sum([x == [] for x in self.authors]) > len(self.titles)/2:
                 self.warnings += "Warning: found many articles with no authors in Nature Neuroscience"
-            if sum([x == '' for x in self.descriptions]) > 6:
+            if sum([x == '' for x in self.descriptions]) > len(self.titles)/2:
                 self.warnings += "Warning: found many articles with no description in Nature Neuroscience"
             if sum([x == '' for x in self.links]) > 0:
                 self.warnings += "Warning: could not find links to all articles in Nature Neuroscience"
+            if len(set(self.article_types)) < 2:
+                self.article_types = ["Article" for x in self.article_types]
 
         def handle_starttag(self, tag, attrs):
             if (tag == "h2" 
@@ -45,6 +50,7 @@ class NatureNeuroParser(HTMLParser):
                 self.descriptions.append('')
                 self.links.append('')
                 self.data_type = "article"
+                self.article_types.append(None)
             
             if (self.data_type == "article"
                 and tag == "p"
@@ -64,6 +70,12 @@ class NatureNeuroParser(HTMLParser):
                 and attrs[0][1] == "name"
                 ):
                 self.data_subtype = "author"
+
+            if (self.data_type == "article"
+                and tag == "span"
+                and len(attrs) > 0
+                and attrs[0] == ("data-test", "article.type")):
+                self.data_subtype = "article_type"
 
         def handle_endtag(self, tag):
             if tag == "article":
@@ -89,4 +101,8 @@ class NatureNeuroParser(HTMLParser):
 
             if self.data_subtype == "author":
                 self.authors[self.n].append(data)
+                self.data_subtype = None
+            
+            if self.data_subtype == "article_type":
+                self.article_types[self.n] = data
                 self.data_subtype = None
