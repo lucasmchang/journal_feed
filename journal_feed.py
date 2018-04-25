@@ -130,25 +130,55 @@ new_cache = new_cache[~drop_at]
 #write the new cache to csv
 new_cache.to_csv('cached_articles.csv', index = False)
 
-#generate the digest from new articles
-contents = ""
-previous_journal = None
-for index, line in new_articles.iterrows():
+#get list of keyword-recipient pairs
+keywords =[(r[0],recipients[int(r[1])]) for r in csv.reader(open('key_words.csv', 'r'))]
+#{keyword,recipient_email}
+
+def add_article_to_digest(digest, line, previous_journal):
     if not line['journal'] == previous_journal:
-        contents += "\n\n" + line['journal'] + "\n\n"
-
+        digest += "\n\n" + line['journal'] + "\n\n"
     if line['article_type'] is not None:
-        contents += '[' + line['article_type'].strip() + ']' + "\n"
-    contents += line['title'] + "\n"
+        digest += '[' + line['article_type'].strip() + ']' + "\n"
+        digest += line['title'] + "\n"
     if line['authors'] is not None and len(line['authors'].strip()) > 1:
-        contents += line['authors'] + "\n"
+        digest += line['authors'] + "\n"
     if line['description'] is not None and len(line['description'].strip()) > 1:
-        contents += line['description'] + "\n"
-    contents += line['link'] + "\n\n"
+        digest += line['description'] + "\n"
+    digest += line['link'] + "\n\n"
     previous_journal = line['journal']
+    return digest, previous_journal
 
-#send the emails
 for email_address in recipients:
+    #move new articles with keywords in watchlist to top
+    watchlist = [r[0] for r in keywords if r[1] == email_address]
+    title_in_watchlist = [any([w in t for w in watchlist]) for t in new_articles['title']] 
+    description_in_watchlist = [any([w in t for w in watchlist]) for t in new_articles['description']] 
+    author_in_watchlist = [any([w in t for w in watchlist]) for t in new_articles['authors']] 
+    in_watchlist = [
+        title_in_watchlist[i]
+        or description_in_watchlist[i]
+        or author_in_watchlist[i]
+        for i in range(len(new_articles))
+    ]
+    num_flagged_articles = sum(in_watchlist)
+    flagged_articles = new_articles[in_watchlist]
+    #generate the digest from new articles
+    contents = ""
+    if num_flagged_articles:
+        contents += "Articles containing your tracked keywords:" 
+        previous_journal = None
+        for index, line in flagged_articles.iterrows():
+            contents, previous_journal = add_article_to_digest(
+                contents, line, previous_journal
+                )
+        contents += "All articles:"
+    previous_journal = None
+    for index, line in new_articles.iterrows():
+        contents, previous_journal = add_article_to_digest(
+            contents, line, previous_journal
+            )
+
+    #send the email
     #don't send if no new articles today
     if contents == "":
         break

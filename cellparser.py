@@ -26,7 +26,7 @@ class CellParser(HTMLParser):
         def quality_check(self):
             #if not type(self.issue_date) is type(datetime(1,1,1).date()):
             #    raise NoDateError('No date for Neuron')
-            if len(self.titles) < 5:
+            if len(self.titles) < 4:
                 self.warnings += "Warning: found too few articles in Cell (Neuron/Current Bio)"
             if sum([x == [] for x in self.authors]) > 4:
                 self.warnings += "Warning: found many articles with no authors in Cell (Neuron/Current Bio)"
