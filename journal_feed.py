@@ -3,7 +3,7 @@ import csv
 import subprocess
 import os
 os.chdir(os.path.expanduser('~/Dropbox/Active/Other_stuff/IndependentProjects/journal_feed'))
-from customweb import scrape
+from webtools import scrape
 from cellparser import CellParser
 from natureneuroparser import NatureNeuroParser
 from pnasparser import PNASParser
