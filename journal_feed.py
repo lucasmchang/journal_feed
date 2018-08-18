@@ -9,6 +9,8 @@ from natureneuroparser import NatureNeuroParser
 from pnasparser import PNASParser
 from natureparser import NatureParser
 from jneurosciparser import JNeurosciParser
+from scienceparser import ScienceParser
+from elifeparser import ELifeParser
 import pandas as pd
 from datetime import timedelta
 
@@ -24,9 +26,14 @@ site_urls = [
     'http://www.cell.com/neuron/newarticles',
     'http://www.cell.com/current-biology/current',
     'http://www.cell.com/current-biology/newarticles',
+    'https://www.cell.com/cell/current',
+    'https://www.cell.com/cell/newarticles',
     'http://www.pnas.org/content/current',
     'http://www.jneurosci.org/content/current',
-    'http://www.jneurosci.org/content/early/recent'
+    'http://www.jneurosci.org/content/early/recent',
+    'http://science.sciencemag.org',
+    'http://science.sciencemag.org/content/early/recent',
+    'https://elifesciences.org/subjects/neuroscience'
 ]
 
 parsers = [
@@ -38,9 +45,14 @@ parsers = [
     CellParser(),
     CellParser(),
     CellParser(),
+    CellParser(),
+    CellParser(),
     PNASParser(),
     JNeurosciParser(),
-    JNeurosciParser()
+    JNeurosciParser(),
+    ScienceParser(),
+    ScienceParser(),
+    ELifeParser()
 ]
 
 journal_names = [
@@ -52,9 +64,14 @@ journal_names = [
     'Neuron',
     'Current Biology',
     'Current Biology',
+    'Cell',
+    'Cell',
     'PNAS',
     'Journal of Neuroscience',
-    'Journal of Neuroscience'
+    'Journal of Neuroscience',
+    'Science',
+    'Science',
+    'ELife'
 ]
 
 error_report = ""
