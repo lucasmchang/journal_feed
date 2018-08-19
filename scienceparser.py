@@ -27,7 +27,7 @@ class ScienceParser(HTMLParser):
             self.warnings += "Warning: found too few articles in Science"
         if sum([x == [] for x in self.authors]) > 4:
             self.warnings += "Warning: found many articles with no authors in Science"
-        if sum([x == '' for x in self.descriptions]) > 4 and self.issue_date is not None:
+        if sum([x == '' for x in self.descriptions]) >= self.n - 2  and self.issue_date is not None:
             #no description is ok for early articles
             self.warnings += "Warning: found many articles with no description in Science"
         if sum([x == '' for x in self.links]) > 0:

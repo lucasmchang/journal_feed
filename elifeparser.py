@@ -28,7 +28,7 @@ class ELifeParser(HTMLParser):
             self.warnings += "Warning: found too few articles in ELife"
         if sum([x == [] for x in self.authors]) > 4:
             self.warnings += "Warning: found many articles with no authors in ELife"
-        if sum([x == '' for x in self.descriptions]) > 4:
+        if sum([x == '' for x in self.descriptions]) >= self.n - 2:
             self.warnings += "Warning: found many articles with no description in ELife"
         if sum([x == '' for x in self.links]) > 0:
             self.warnings += "Warning: could not find links to all articles in ELife"
