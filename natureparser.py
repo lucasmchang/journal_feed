@@ -35,36 +35,30 @@ class NatureParser(HTMLParser):
                 self.article_types = [None for x in self.article_types]
 
     def handle_starttag(self, tag, attrs):
-        if self.data_type == "ignore":
-            #look for signal to stop ignoring if there is ever content after ignore signal
-            return None
-        if (tag == "h1"
-            and len(attrs)>0
-            and (
-                attrs[0] == ("class", "primary-heading")
-                or attrs[0] == ("class", "secondary-heading")
-            )):
-            self.data_type = "section"
-        if (tag == "span" 
-            and len(attrs)>0 
-            and attrs[0] == ("class", "more")
+
+        if (tag == "title"
+            and self.n == -1
             ):
             self.data_type = "date"
-        if (tag == "article" and not self.data_type == "ignore"
+
+        if (tag == "span"
+            and len(attrs) > 0
+            and attrs[0] == ("data-test", "article.type")
+            and self.data_type == "article"
             ):
+            self.data_subtype = "section"
+
+        if (tag == "article"):
             self.n += 1
             self.titles.append('')
             self.authors.append([])
             self.descriptions.append('')
             self.links.append('')
-            self.article_types.append(self.section_type)
+            self.article_types.append('')
             self.data_type = "article"
+        
+    
         if (self.data_type == "article"
-            and tag == "h1"
-            ):
-            self.data_subtype = "title"
-        if (self.data_type == "article"
-            and self.data_subtype == "title"
             and tag == "a"
             and len(attrs)>0
             and attrs[0][0] == "href"
@@ -73,27 +67,26 @@ class NatureParser(HTMLParser):
             if not link.startswith('http://www.nature.com/'):
                 link = 'http://www.nature.com/' + link
             self.links[self.n] = link
+            self.data_subtype = "title"
+
         if (self.data_type == "article"
-            and tag == "p"
+            and tag == "div"
+            and len(attrs) > 1
+            and attrs[1][1] == "description"
             ):
             self.data_subtype = "description"
+        
         if (self.data_type == "article"
             and tag == "ul"
             and len(attrs)>0
-            and attrs[0] == ("class", "authors limited")
+            and attrs[0] == ("data-test", "author-list")
             ):
             self.data_subtype = "authors"
-        if (tag == "div"
-            and len(attrs)>0
-            and attrs[0] == ("id", "extranav")
-            ):
-            self.data_type = "ignore"
-            self.data_subtype = None
 
     def handle_endtag(self, tag):
         if tag == "article" and self.data_type == "article":
             self.data_type = None
-        if tag == "span" and self.data_type == "date":
+        if tag == "title" and self.data_type == "date":
             self.data_type = None
             self.data_subtype = None
         if tag == "p" and self.data_subtype == "description":
@@ -102,19 +95,24 @@ class NatureParser(HTMLParser):
             self.data_subtype = None
         if tag == "ul" and self.data_subtype == "authors":
             self.data_subtype = None
-        if tag == "h1" and self.data_type == "section":
+        if tag == "span" and self.data_type == "section":
             self.data_type = None
      
     def handle_data(self, data):
         if self.data_type == "date":
-            self.issue_date = datetime.strptime(data, '%d %B %Y').date()
+            date_str = data.split(",")[1].strip()
+            self.issue_date = datetime.strptime(date_str, '%d %B %Y').date()
             self.data_type = None
         if self.data_type == "article":
             if self.data_subtype == "title":
-                self.titles[self.n] += data.replace("\n", "").replace("\t", "").strip() + " "
+                if len(self.titles[self.n]) > 1:
+                    self.titles[self.n] += " "
+                self.titles[self.n] += data.replace("\n", "").replace("\t", "").strip()
             if self.data_subtype == "description":
-                self.descriptions[self.n] += data.replace("\n", "").replace("\t", "").strip() + " "
-            if self.data_subtype == "authors":
+                if len(self.descriptions[self.n]) > 1:
+                    self.descriptions[self.n] += " "
+                self.descriptions[self.n] += data.replace("\n", "").replace("\t", "").strip()
+            if self.data_subtype == "authors" and len(data) >= 2: 
                 self.authors[self.n].append(data.strip())
-        if self.data_type == "section":
-            self.section_type = data
+            if self.data_type == "section":
+                self.article_types[self.n] = data
