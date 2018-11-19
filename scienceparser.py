@@ -113,7 +113,10 @@ class ScienceParser(HTMLParser):
             self.titles[self.n] +=  data.replace('"', '')
 
         if self.data_subtype == "description":
-            self.descriptions[self.n] += data
+            if self.descriptions[self.n] == '':
+                self.descriptions[self.n] = data.strip()
+            else:
+                self.descriptions[self.n] += ' ' + data
 
         if self.data_subtype == "author":
             self.authors[self.n].append(data)

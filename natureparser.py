@@ -32,7 +32,7 @@ class NatureParser(HTMLParser):
         if sum([x == '' for x in self.links]) > 0:
             self.warnings += "Warning: could not find links to all articles in Nature"
         if len(set(self.article_types)) < 2:
-                self.article_types = [None for x in self.article_types]
+                self.article_types = ["Unknown Type" for x in self.article_types]
 
     def handle_starttag(self, tag, attrs):
 
@@ -57,7 +57,6 @@ class NatureParser(HTMLParser):
             self.article_types.append('')
             self.data_type = "article"
         
-    
         if (self.data_type == "article"
             and tag == "a"
             and len(attrs)>0
@@ -112,7 +111,8 @@ class NatureParser(HTMLParser):
                 if len(self.descriptions[self.n]) > 1:
                     self.descriptions[self.n] += " "
                 self.descriptions[self.n] += data.replace("\n", "").replace("\t", "").strip()
-            if self.data_subtype == "authors" and len(data) >= 2: 
+            if self.data_subtype == "authors" and len(data) >= 2 and len(data.strip()) >= 2 : 
                 self.authors[self.n].append(data.strip())
-            if self.data_type == "section":
+            if self.data_subtype == "section":
                 self.article_types[self.n] = data
+                self.data_subtype = None

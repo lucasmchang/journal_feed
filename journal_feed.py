@@ -2,7 +2,7 @@ from datetime import datetime
 import csv
 import subprocess
 import os
-os.chdir(os.path.expanduser('~/Dropbox/Active/Other_stuff/IndependentProjects/journal_feed'))
+os.chdir(os.path.expanduser('~/Dropbox/Active/Other_stuff/Projects/journal_feed'))
 from webtools import scrape
 from cellparser import CellParser
 from natureneuroparser import NatureNeuroParser
@@ -13,6 +13,7 @@ from scienceparser import ScienceParser
 from elifeparser import ELifeParser
 import pandas as pd
 from datetime import timedelta
+import re
 
 
 recipients = [r[0] for r in csv.reader(open('recipients.csv', 'r'))]
@@ -130,9 +131,11 @@ known_papers = [(
     l
     ) for t, a, l in zip(cache['title'], cache['authors'], cache['link'])]
 
+known_condensed_titles = [re.sub("[^a-zA-Z]+", "", k[0]) for k in known_papers]
 drop_at = pd.Series([
     (t,a.split(",")[0].split('and')[0].strip()) in [(k[0], k[1]) for k in known_papers]
     or (t, l) in [(k[0], k[2]) for k in known_papers]
+    or re.sub("[^a-zA-Z]+", "", t) in known_condensed_titles
     for (t, a, l) in zip(articles['title'], articles['authors'], articles['link'])]).values
 new_articles = articles[~drop_at]
 
