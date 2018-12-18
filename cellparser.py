@@ -38,15 +38,10 @@ class CellParser(HTMLParser):
             self.article_types = ["Article" for x in self.article_types]
 
     def handle_starttag(self, tag, attrs):
-        if (tag == "span" 
-            and len(attrs)>0 
-            and attrs[0] == ("class", "date")
-            ):
-            self.data_type = "date"
 
-        if (tag == "div" 
-            and len(attrs)>0
-            and attrs[0] == ("class", "article-details")):
+        if (tag == "h3" 
+            and len(attrs)>1
+            and attrs[1] == ("class", "toc__item__title")):
             self.n += 1
             self.titles.append('')
             self.authors.append([])
@@ -58,7 +53,8 @@ class CellParser(HTMLParser):
         
         if (tag == "h2" 
             and len(attrs)>0
-            and attrs[0] == ("class", "heading")):
+            and attrs[0][1].startswith("toc__heading")
+           ):
             self.data_type = "section"
 
         if (self.data_subtype == "title"
@@ -68,22 +64,22 @@ class CellParser(HTMLParser):
             self.links[self.n] = 'www.cell.com' + attrs[0][1]
 
         if (self.data_type == "article"
-            and tag == "span"
+            and tag == "div"
             and len(attrs) > 0
-            and attrs[0][1] == "content"
+            and attrs[0][1] == "toc__item__brief"
             ):
             self.data_subtype = "description"
         
         if (self.data_type == "article"
-            and tag == "div"
-            and len(attrs) > 0
-            and attrs[0][1] == "authors"
+            and tag == "ul"
+            and len(attrs) > 1
+            and attrs[1][1].startswith("toc__item__authors")
             ):
             self.data_subtype = "author"
 
     def handle_endtag(self, tag):
-        if tag == "li":
-            self.data_type = None
+        if (tag == "ul"
+            and self.data_subtype == "author"):
             self.data_subtype = None
 
         if (self.data_subtype == "title" 
@@ -91,13 +87,18 @@ class CellParser(HTMLParser):
             self.data_subtype = None
 
         if (self.data_subtype == "description" 
-            and tag == "span"):
+            and tag == "div"):
+            self.data_type = None
             self.data_subtype = None
 
-    def handle_data(self, data):
-        if self.data_type == "date":
-            self.issue_date =  datetime.strptime(data.strip(), '%B %d, %Y').date()
+        if (self.data_type == "section"
+            and tag == "h2"):
             self.data_type = None
+
+    def handle_data(self, data):
+        #if self.data_type == "date":
+        #    self.issue_date =  datetime.strptime(data.strip(), '%B %d, %Y').date()
+        #    self.data_type = None
 
         if self.data_subtype == "title":
             self.titles[self.n] +=  data
@@ -107,9 +108,12 @@ class CellParser(HTMLParser):
             self.descriptions[self.n] += data.replace("\xa0", " ")
 
         if self.data_subtype == "author":
-            self.authors[self.n].append(data)
-            self.data_subtype = None
+            self.authors[self.n].append(data.replace(",",""))
 
         if self.data_type == "section":
-            self.section_type = data
+            if not any([x in data for x in ('January', 'February', 'March',
+                                            'April', 'May', 'June', 'July',
+                                            'August', 'September', 'October',
+                                            'November', 'December')]):
+                self.section_type = data
             self.data_type = None
