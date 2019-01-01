@@ -140,7 +140,7 @@ drop_at = pd.Series([
 new_articles = articles[~drop_at]
 
 #cache new articles
-new_cache = pd.concat([new_articles, cache])
+new_cache = pd.concat([new_articles, cache], sort=True)
 #drop old articles from cache
 drop_at = pd.Series(
     [datetime.strptime(adate, "%d %B %Y").date() < datetime.now().date()-timedelta(days=40) for adate in new_cache['date']]
@@ -148,7 +148,7 @@ drop_at = pd.Series(
 new_cache = new_cache[~drop_at]
 
 #write the new cache to csv
-new_cache.to_csv('cached_articles.csv', index = False)
+new_cache.to_csv('cached_articles.csv', index=False)
 
 #get list of keyword-recipient pairs
 keywords =[(r[0],recipients[int(r[1])]) for r in csv.reader(open('key_words.csv', 'r'))]
