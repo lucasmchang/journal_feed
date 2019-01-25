@@ -25,7 +25,7 @@ class ScienceParser(HTMLParser):
         #    raise NoDateError('No date for Neuron')
         if len(self.titles) < 4:
             self.warnings += "Warning: found too few articles in Science"
-        if sum([x == [] for x in self.authors]) > 7:
+        if sum([x == [] for x in self.authors]) > 9:
             self.warnings += "Warning: found many articles with no authors in Science"
         if sum([x == '' for x in self.descriptions]) >= self.n - 2  and self.issue_date is not None:
             #no description is ok for early articles
@@ -36,7 +36,6 @@ class ScienceParser(HTMLParser):
             self.article_types = ["Article" for x in self.article_types]
 
     def handle_starttag(self, tag, attrs):
-        ####################################3
         if (tag == "div" 
             and len(attrs)>0 
             and attrs[0][1].startswith("beta section-title")
